@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "honeypot-hunter"
+version = "2.0.0"
+description = "Passive, Shodan-only hunting for honeypot and sensor fleets: count ladder, gated search, behaviour scoring, host-history inspection."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []  # standard library only
+
+[project.scripts]
+honeypot-hunter = "honeypot_hunter.cli:main"
+
+[tool.setuptools]
+packages = ["honeypot_hunter"]
+
+[tool.setuptools.package-data]
+honeypot_hunter = ["static/*.html"]

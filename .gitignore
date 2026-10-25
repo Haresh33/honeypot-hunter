@@ -1,0 +1,21 @@
+# Secrets
+.env
+.env.*
+
+# User data: real IPs from Shodan, verdicts, reference sensors
+*.db
+*.db-wal
+*.db-shm
+references.json
+reports/
+cve-checks/
+honeypot-hunt-*.md
+honeypot-hunt-*.json
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
