@@ -1,0 +1,7 @@
+[
+  {
+    "ip": "203.0.113.10",
+    "label": "example · web persona",
+    "note": "Replace with a sensor you have confirmed yourself. Copy this file to ~/.honeypot-hunter/references.json; that copy is never committed."
+  }
+]

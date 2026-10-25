@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<link rel="icon" href="data:," />
+<title>Honeypot Hunter</title>
+<style>
+  :root {
+    --bg: #0a0d0b; --surface: #111613; --surface-2: #171e19; --text: #e8ece9; --dim: #8fa398;
+    --border: #26302a; --accent: #f0a824; --accent-dim: #7a5a14; --teal: #3ec6b8; --red: #e05d4f;
+    --radius: 10px; --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 var(--sans); }
+  main { max-width: 860px; margin: 0 auto; padding: 0 16px 64px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  h2 { font-size: 17px; margin: 0; }
+  h3 { font-size: 15px; margin: 0; }
+  p { margin: 6px 0 0; }
+  .mono { font-family: var(--mono); }
+  .dim { color: var(--dim); }
+  .xs { font-size: 12px; } .sm { font-size: 13px; }
+  .accent { color: var(--accent); } .teal { color: var(--teal); } .red { color: var(--red); }
+  section { margin-top: 28px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .row.center { align-items: center; }
+  .grow { flex: 1 1 200px; min-width: 0; }
+  .ml-auto { margin-left: auto; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .grid2 { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 640px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 420px) { .grid, .grid2 { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--dim); margin-bottom: 4px; }
+  input, textarea, select {
+    width: 100%; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--text); padding: 8px 12px; font: 13px var(--mono);
+  }
+  textarea { min-height: 64px; resize: vertical; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  input::placeholder, textarea::placeholder { color: #5d6d64; }
+  button {
+    font: inherit; font-size: 13px; cursor: pointer; border-radius: 999px; padding: 6px 14px;
+    border: 1px solid var(--border); background: transparent; color: var(--text); white-space: nowrap;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 600; }
+  button.ghost { border-color: var(--accent-dim); color: var(--accent); }
+  button.small { font-size: 12px; padding: 3px 10px; }
+  button.danger { color: var(--red); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pill { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font: 12px var(--mono); color: var(--dim); }
+  .banner { border: 1px solid var(--red); color: var(--text); background: #2a1512; border-radius: var(--radius); padding: 10px 14px; margin-top: 16px; }
+  .note { border: 1px solid var(--accent-dim); border-radius: var(--radius); padding: 12px; margin-top: 12px; }
+  .err { color: var(--red); margin-top: 8px; font-size: 13px; }
+  header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-top: 22px; }
+  .stage { border-left: 2px solid var(--border); padding: 8px 0 8px 14px; }
+  .bar { height: 6px; border-radius: 3px; background: var(--surface-2); margin-top: 4px; }
+  .bar > div { height: 6px; border-radius: 3px; background: var(--accent); opacity: .85; }
+  .q { font: 11px var(--mono); color: var(--dim); word-break: break-all; margin-top: 4px; }
+  ul.plain { list-style: none; margin: 0; padding: 0; }
+  ul.plain li + li { margin-top: 4px; }
+  .facet li { display: flex; gap: 8px; align-items: center; font: 12px var(--mono); }
+  .facet .v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hunt { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+  .hunt.sel { border-color: var(--accent); }
+  .hunt .pick { flex: 1 1 220px; min-width: 0; text-align: left; border: 0; padding: 0; border-radius: 0; white-space: normal; }
+  .cand { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .cand + .cand { margin-top: 12px; }
+  .score { font: 700 30px/1 var(--mono); text-align: center; min-width: 52px; }
+  .trunc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sig { display: flex; gap: 8px; font: 12px var(--mono); }
+  .sig .pts { min-width: 34px; }
+  .tag { display: inline-block; font: 10px var(--mono); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; margin-left: 6px; color: var(--dim); vertical-align: 1px; }
+  .tag.prov { border-color: var(--accent-dim); color: var(--accent); }
+  .sep { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
+  .verdicts button.on-likely_sensor { background: var(--teal); border-color: var(--teal); color: #0a0d0b; font-weight: 600; }
+  .verdicts button.on-ruled_out { background: var(--red); border-color: var(--red); color: #0a0d0b; font-weight: 600; }
+  .verdicts button.on-unreviewed { background: var(--surface-2); font-weight: 600; }
+  .kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 16px; font: 12px var(--mono); color: var(--dim); }
+  .kv b { color: var(--text); font-weight: 400; }
+  .filters select { width: auto; padding: 4px 8px; font-size: 12px; }
+  .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<main id="app">
+  <header>
+    <h1>Honeypot Hunter</h1>
+    <span class="pill" id="credits">checking Shodan…</span>
+  </header>
+  <div id="keyBanner" class="banner" hidden>
+    No Shodan API key loaded. Stop the server, set <span class="mono">SHODAN_API_KEY</span> (environment or <span class="mono">.env</span>), and start it again.
+  </div>
+  <p class="mono xs dim" style="margin-top:10px">
+    Passive hunt console. Build a fingerprint profile, watch the Shodan pool collapse down the count ladder, then score what
+    survives for honeypot-shaped behaviour. Nothing here ever connects to a candidate host — every signal comes from Shodan's
+    public scan data.
+  </p>
+
+  <!-- Cold start -->
+  <section>
+    <h2>Cold start — facet explorer</h2>
+    <p class="sm dim">No intel yet? Start from just a CVE, a version/product banner, or any Shodan query. One free count breaks the pool down by
+      cloud org, city, product and port — look for the anomaly (one cloud or city holding many identical hosts, the same stack in several
+      regions), then load a cluster into the hunt profile.</p>
+    <div class="row" style="margin-top:12px">
+      <div class="grow"><label for="facetSeed">CVE, banner, or query</label>
+        <input id="facetSeed" placeholder="CVE-2099-12345 · PHP/8.9.9 · tag:honeypot" /></div>
+      <button class="primary" id="facetBtn">Explore facets (free)</button>
+    </div>
+    <div id="facetOut"></div>
+  </section>
+
+  <!-- Title sweep -->
+  <section class="card">
+    <h3>Title-pattern sweep — persistent fleets</h3>
+    <p class="sm dim">Persistent sensors (deployed before a vulnerability is disclosed) don't cluster by first-seen date and may not advertise
+      the vulnerable version at all. Sweep a generic internal page title across clouds instead — pair it with an org or port to keep the pool small.</p>
+    <div class="row" style="margin-top:12px">
+      <div class="grow"><label for="titleSweep">Page title fragment</label><input id="titleSweep" placeholder="Staff Portal" /></div>
+      <button class="ghost" id="titleBtn">Load title sweep into profile</button>
+    </div>
+  </section>
+
+  <!-- Profile -->
+  <section>
+    <div class="row center">
+      <h2>Hunt profile</h2>
+      <div class="ml-auto row center" id="presetBtns"></div>
+    </div>
+    <div class="grid" style="margin-top:12px" id="profileGrid"></div>
+    <div class="grid2" style="margin-top:12px">
+      <div><label for="ws">Campaign window start (UTC)</label><input id="ws" type="date" /></div>
+      <div><label for="we">Campaign window end (UTC)</label><input id="we" type="date" /></div>
+    </div>
+    <p class="mono xs dim">Hosts first sighted inside the window earn timing points — a campaign fleet's sensors are typically first sighted inside theirs.</p>
+    <div style="margin-top:12px">
+      <div class="row center"><label for="finalQuery" style="margin:0">Final Shodan query (editable)</label>
+        <button class="small ml-auto" id="resetQuery" hidden>Reset to profile</button></div>
+      <textarea id="finalQuery" style="margin-top:4px"></textarea>
+    </div>
+  </section>
+
+  <!-- Ladder -->
+  <section>
+    <div class="row center"><h2>Count ladder</h2><button class="primary ml-auto" id="ladderBtn">Count the ladder (free)</button></div>
+    <div id="ladderOut" style="margin-top:12px"></div>
+  </section>
+
+  <!-- Run -->
+  <section class="card">
+    <div class="row">
+      <div class="grow"><label for="huntName">Hunt name</label><input id="huntName" /></div>
+      <button class="primary" id="runBtn">Run hunt</button>
+    </div>
+    <p class="mono xs dim" id="limitsNote"></p>
+    <div id="runOut"></div>
+  </section>
+
+  <!-- Saved hunts -->
+  <section>
+    <h2>Saved hunts</h2>
+    <div id="huntsOut" style="margin-top:8px"></div>
+  </section>
+
+  <!-- Candidates -->
+  <section id="candSection" hidden>
+    <div class="row center">
+      <h2>Candidates</h2>
+      <span class="mono xs dim" id="candSummary"></span>
+    </div>
+    <div class="row center filters" style="margin-top:10px">
+      <select id="fBand" aria-label="Filter by band"><option value="">All bands</option><option value="strong">Strong</option><option value="possible">Possible</option><option value="weak">Weak</option></select>
+      <select id="fVerdict" aria-label="Filter by verdict"><option value="">All verdicts</option><option value="unreviewed">Unreviewed</option><option value="likely_sensor">Likely sensor</option><option value="ruled_out">Ruled out</option></select>
+      <button class="ghost small ml-auto" id="inspectTopBtn">Inspect top 10 (free lookups)</button>
+    </div>
+    <div id="inspectTopOut"></div>
+    <div id="candOut" style="margin-top:12px"></div>
+    <p class="mono xs dim" style="margin-top:12px">
+      A high score is a fingerprint match, not proof. Port signals marked <span class="tag prov">provisional</span> come from search results,
+      which only include banners that matched the query — inspect to verify. Inspection re-scores the host from its full record and history:
+      a campaign-fleet host shows one service and a fresh first sighting; a persistent-fleet host shows an unchanged banner across months while
+      still vuln-flagged; a production host shows churn.
+    </p>
+  </section>
+
+  <!-- Reference -->
+  <section>
+    <h2>Your reference sensors</h2>
+    <p class="sm dim">Hosts you have confirmed yourself, from <span class="mono">references.json</span> in the data folder. Inspect them to calibrate what a top score looks like.</p>
+    <div id="refOut" style="margin-top:12px"></div>
+    <div class="row" style="margin-top:16px">
+      <div class="grow"><label for="looseIp">Inspect any IP</label><input id="looseIp" placeholder="203.0.113.10" /></div>
+      <button class="ghost" id="looseBtn">Inspect</button>
+    </div>
+    <div id="looseOut"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+// ---------- tiny DOM helper (always textContent — Shodan data is attacker-controlled) ----------
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k === "style") n.style.cssText = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v === true) n.setAttribute(k, "");
+    else n.setAttribute(k, String(v));
+  }
+  for (const k of kids.flat(9)) { if (k == null || k === false) continue; n.append(k instanceof Node ? k : document.createTextNode(String(k))); }
+  return n;
+}
+const $ = (id) => document.getElementById(id);
+const portList = (p) => (!p.length ? "—" : p.length > 12 ? `${p.slice(0, 12).join(", ")} … +${p.length - 12} more (${p.length} total)` : p.join(", "));
+const fmtN = (n) => (n == null ? "—" : Number(n).toLocaleString());
+function fmtDate(iso) {
+  if (!iso) return "—";
+  const s = /z$|[+-]\d\d:?\d\d$/i.test(iso) ? iso : iso + "Z";
+  const d = new Date(s);
+  return isNaN(d) ? iso : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+async function api(path, body) {
+  const opt = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json", "X-Honeypot-Hunter": "1" }, body: JSON.stringify(body) };
+  const r = await fetch(path, opt);
+  let data = null; try { data = await r.json(); } catch {}
+  if (!r.ok) throw new Error((data && data.error) || `HTTP ${r.status}`);
+  return data;
+}
+function busy(btn, on, label) {
+  if (on) { btn.dataset.label = btn.textContent; btn.disabled = true; btn.replaceChildren(el("span", { class: "spinner" }), " " + (label || "Working…")); }
+  else { btn.disabled = false; btn.textContent = btn.dataset.label || btn.textContent; }
+}
+
+// ---------- state ----------
+const FIELDS = [
+  ["org", "Cloud org", "Example Cloud Inc."], ["port", "Port", "80"], ["country", "Country code", "ZZ"],
+  ["city", "City", "Exampleville"], ["product", "Web server", "Apache httpd"], ["serverVersion", "Server version", "2.4.99"],
+  ["langBanner", "Language banner", "PHP/8.9.9"], ["cms", "CMS / persona fragment", 'http.component:"WordPress"'],
+  ["vuln", "Vuln flag (CVE)", "CVE-2099-12345"], ["hostname", "Hostname contains", "compute.amazonaws.com"],
+  ["title", "Page title pattern", "Staff Portal"],
+];
+const EMPTY = Object.fromEntries(FIELDS.map(([k]) => [k, ""]));
+const S = { boot: null, profile: { ...EMPTY }, stages: [], ladder: null, rawQuery: null, selected: null, hunt: null, inspecting: new Set(), openSignals: new Set(), openDetail: new Set(), pendingDelete: null };
+
+// ---------- profile ----------
+function renderProfileGrid() {
+  const g = $("profileGrid"); g.replaceChildren();
+  for (const [k, label, ph] of FIELDS) {
+    const id = "pf_" + k;
+    g.append(el("div", {}, el("label", { for: id }, label),
+      el("input", { id, value: S.profile[k], placeholder: ph, oninput: (e) => setField(k, e.target.value) })));
+  }
+}
+let stageTimer = null;
+function setField(k, v) { S.profile[k] = v; S.rawQuery = null; S.ladder = null; clearRun(); scheduleStages(); }
+function scheduleStages() { clearTimeout(stageTimer); stageTimer = setTimeout(refreshStages, 150); }
+async function refreshStages() {
+  try { S.stages = (await api("/api/stages", { profile: S.profile })).stages; } catch (e) { S.stages = []; }
+  renderQuery(); renderLadder();
+}
+function finalQuery() { return S.rawQuery ?? (S.stages.length ? S.stages[S.stages.length - 1].query : ""); }
+function renderQuery() {
+  const ta = $("finalQuery");
+  if (document.activeElement !== ta) ta.value = finalQuery();
+  $("resetQuery").hidden = S.rawQuery === null;
+}
+function loadProfile(p, opts = {}) {
+  S.profile = { ...EMPTY, ...p }; S.rawQuery = opts.rawQuery || null; S.ladder = null; clearRun();
+  if ("windowStart" in opts) $("ws").value = opts.windowStart || "";
+  if ("windowEnd" in opts) $("we").value = opts.windowEnd || "";
+  if (opts.name) $("huntName").value = opts.name;
+  renderProfileGrid(); scheduleStages();
+}
+$("finalQuery").addEventListener("input", (e) => { S.rawQuery = e.target.value; S.ladder = null; clearRun(); $("resetQuery").hidden = false; renderLadder(); });
+$("resetQuery").addEventListener("click", () => { S.rawQuery = null; renderQuery(); renderLadder(); });
+
+// ---------- ladder ----------
+function ladderStages() {
+  const st = S.stages.map((s) => ({ ...s }));
+  const fq = finalQuery().trim();
+  if (fq && (!st.length || st[st.length - 1].query !== fq)) st.push({ label: "Final query (edited)", query: fq, total: null });
+  return st.slice(-6);
+}
+function renderLadder() {
+  const out = $("ladderOut"); out.replaceChildren();
+  const rows = S.ladder || ladderStages();
+  if (!rows.length) { out.append(el("p", { class: "sm dim" }, "Fill in the profile (or a final query) to build a ladder.")); return; }
+  const top = S.ladder && S.ladder[0] && S.ladder[0].total ? S.ladder[0].total : null;
+  rows.forEach((s, i) => {
+    const pct = top ? Math.max(3, ((s.total || 0) / top) * 100) : 100 - i * 16;
+    const col = s.total == null ? null : s.total <= S.boot.limits.confirmAbove ? "var(--accent)" : s.total <= S.boot.limits.maxPool ? "var(--teal)" : "var(--text)";
+    out.append(el("div", { class: "stage", style: `margin-left:${i * 14}px` },
+      el("div", { class: "row center", style: "gap:4px 12px" },
+        el("span", { class: "sm", style: "font-weight:500" }, s.label),
+        s.total == null ? el("span", { class: "mono xs dim" }, "not counted yet") : el("span", { class: "mono", style: `font-size:20px;font-weight:700;color:${col}` }, fmtN(s.total)),
+        s.error ? el("span", { class: "xs red" }, s.error) : null),
+      el("div", { class: "bar" }, el("div", { style: `width:${pct}%;${S.ladder ? "" : "opacity:.25"}` })),
+      el("div", { class: "q" }, s.query)));
+  });
+  if (S.ladder) {
+    const last = S.ladder[S.ladder.length - 1];
+    if (last && last.total != null) {
+      const L = S.boot.limits;
+      out.append(el("p", { class: "mono xs " + (last.total > L.maxPool ? "red" : "dim") },
+        last.total > L.maxPool ? `Final pool ${fmtN(last.total)} is over ${L.maxPool} — the search will be refused. Add a narrowing field.` :
+        last.total > L.confirmAbove ? `Final pool ${fmtN(last.total)} — the search will ask for confirmation and pull the first 100.` :
+        `Final pool ${fmtN(last.total)} — ready to search (≤1 query credit).`));
+    }
+  }
+}
+$("ladderBtn").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const st = ladderStages(); if (!st.length) return;
+  busy(btn, true, "Counting…");
+  try { S.ladder = (await api("/api/ladder", { stages: st.map(({ label, query }) => ({ label, query })) })).stages; }
+  catch (err) { $("ladderOut").append(el("p", { class: "err" }, err.message)); }
+  finally { busy(btn, false); renderLadder(); refreshInfo(); }
+});
+
+// ---------- run ----------
+function clearRun() { $("runOut").replaceChildren(); }
+async function runHunt(confirmed, btn) {
+  const q = finalQuery().trim(); if (!q) return;
+  busy(btn, true, confirmed ? "Searching…" : "Running…"); clearRun();
+  try {
+    const r = await api("/api/hunt", {
+      name: $("huntName").value.trim() || "Untitled hunt", query: q, profile: S.profile,
+      ladder: S.ladder ? S.ladder.map(({ label, query, total }) => ({ label, query, total })) : null,
+      windowStart: $("ws").value || null, windowEnd: $("we").value || null, confirmed,
+    });
+    if (r.status === "needs_confirm") {
+      const b = el("button", { class: "primary", style: "margin-top:8px", onclick: (ev) => runHunt(true, ev.currentTarget) }, "Confirm — run the search");
+      $("runOut").append(el("div", { class: "note" }, el("p", { class: "sm", style: "margin:0" }, r.message), b));
+    } else if (r.status === "ok") {
+      $("runOut").append(el("p", { class: "mono xs teal", style: "margin-top:10px" }, `Saved hunt #${r.huntId}: ${r.returned} candidates scored of ${fmtN(r.total)} matching.`));
+      await loadHunts(); selectHunt(r.huntId);
+    } else {
+      $("runOut").append(el("p", { class: "err" }, r.message || "The hunt could not be run."));
+    }
+  } catch (err) { $("runOut").append(el("p", { class: "err" }, err.message)); }
+  finally { busy(btn, false); refreshInfo(); }
+}
+$("runBtn").addEventListener("click", (e) => runHunt(false, e.currentTarget));
+
+// ---------- facets ----------
+$("facetBtn").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const seed = $("facetSeed").value.trim(); if (!seed) return;
+  const out = $("facetOut"); out.replaceChildren(); busy(btn, true, "Exploring…");
+  try {
+    const r = await api("/api/explore", { query: seed });
+    if (r.error) { out.append(el("p", { class: "err" }, r.error)); return; }
+    if (/^cve-\d{4}-\d{4,}$/i.test(seed)) setFieldAndRender("vuln", seed.toUpperCase());
+    out.append(el("p", { class: "mono sm", style: "margin-top:12px" }, "Pool for ", el("span", { class: "accent" }, r.query), ": ", el("b", {}, fmtN(r.total)), " hosts"));
+    const groups = [["org", "Cloud org — load", true], ["city", "City — load", true], ["product", "Product — load", true], ["port", "Port — load", true], ["country", "Country — load", true]];
+    const grid = el("div", { class: "grid2", style: "margin-top:12px" });
+    for (const [k, label, apply] of groups) {
+      const rows = (r.facets && r.facets[k]) || [];
+      grid.append(el("div", {}, el("p", { class: "xs dim", style: "margin:0 0 4px;font-weight:500" }, label),
+        el("ul", { class: "plain facet" }, rows.length ? rows.map((row) => el("li", {},
+          el("span", { class: "v", title: row.value }, row.value), el("span", { class: "accent" }, fmtN(row.count)),
+          apply ? el("button", { class: "ghost small", "aria-label": `Load ${k} ${row.value} into the hunt profile`,
+            onclick: () => setFieldAndRender(k, k === "port" ? row.value.replace(/[^0-9]/g, "") : row.value) }, "Load") : null))
+          : el("li", { class: "dim" }, "No breakdown returned."))));
+    }
+    out.append(grid, el("p", { class: "mono xs dim" }, "Loading a cluster fills the matching profile field and resets the ladder — count it before searching."));
+  } catch (err) { out.append(el("p", { class: "err" }, err.message)); }
+  finally { busy(btn, false); }
+});
+function setFieldAndRender(k, v) { S.profile[k] = v; const inp = $("pf_" + k); if (inp) inp.value = v; setField(k, v); }
+$("titleBtn").addEventListener("click", () => {
+  const t = $("titleSweep").value.trim(); if (!t) return;
+  loadProfile({ title: t }, { name: `title sweep: ${t}`, windowStart: "", windowEnd: "" });
+});
+
+// ---------- hunts ----------
+async function loadHunts() {
+  const out = $("huntsOut");
+  let hunts = [];
+  try { hunts = (await api("/api/hunts")).hunts; } catch (err) { out.replaceChildren(el("p", { class: "err" }, err.message)); return; }
+  out.replaceChildren();
+  if (!hunts.length) { out.append(el("p", { class: "sm dim" }, "No hunts saved yet. Run one above and its candidates land here.")); return; }
+  const ul = el("div", { style: "display:grid;gap:8px" });
+  for (const h of hunts) {
+    const del = S.pendingDelete === h.id
+      ? el("button", { class: "small danger", style: "border-color:var(--red)", onclick: async () => { S.pendingDelete = null; await api(`/api/hunts/${h.id}/delete`, {}); if (S.selected === h.id) { S.selected = null; S.hunt = null; renderCandidates(); } loadHunts(); } }, "Confirm delete")
+      : el("button", { class: "small danger", onclick: () => { S.pendingDelete = h.id; loadHunts(); } }, "Delete");
+    ul.append(el("div", { class: "hunt" + (S.selected === h.id ? " sel" : "") },
+      el("button", { class: "pick", onclick: () => selectHunt(h.id) },
+        el("span", { style: "display:block;font-weight:500", class: "trunc" }, h.name),
+        el("span", { class: "mono xs dim", style: "display:block" }, `${h.candidateCount} candidates of ${fmtN(h.total)} matching · ${h.likelyCount} likely · ${fmtDate(h.created_at)}`)),
+      el("a", { href: `/api/hunts/${h.id}/export?format=md`, download: "" }, el("button", { class: "small", tabindex: -1 }, "Report .md")),
+      el("a", { href: `/api/hunts/${h.id}/export?format=json`, download: "" }, el("button", { class: "small", tabindex: -1 }, ".json")),
+      del));
+  }
+  out.append(ul);
+}
+async function selectHunt(id) {
+  S.selected = id; S.openSignals.clear(); S.openDetail.clear(); $("inspectTopOut").replaceChildren();
+  loadHunts(); await reloadHunt();
+  $("candSection").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+async function reloadHunt() {
+  if (S.selected == null) return;
+  try { S.hunt = await api(`/api/hunts/${S.selected}`); } catch (err) { S.hunt = null; }
+  renderCandidates();
+}
+$("fBand").addEventListener("change", renderCandidates);
+$("fVerdict").addEventListener("change", renderCandidates);
+$("inspectTopBtn").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  if (S.selected == null) return;
+  const out = $("inspectTopOut"); out.replaceChildren(); busy(btn, true, "Inspecting (~3 s per host)…");
+  try {
+    const r = await api(`/api/hunts/${S.selected}/inspect-top`, { n: 10 });
+    out.append(el("p", { class: "mono xs " + (r.errors.length ? "red" : "teal") }, `Inspected ${r.inspected} of ${r.attempted}.`, r.errors.map((x) => el("span", { style: "display:block" }, x))));
+  } catch (err) { out.append(el("p", { class: "err" }, err.message)); }
+  finally { busy(btn, false); await reloadHunt(); loadHunts(); }
+});
+
+// ---------- candidates ----------
+const bandColor = (b) => (b === "strong" ? "var(--accent)" : b === "possible" ? "var(--teal)" : "var(--dim)");
+const bandLabel = (b) => (b === "strong" ? "Strong sensor pattern" : b === "possible" ? "Worth a look" : "Weak match");
+function renderCandidates() {
+  const sec = $("candSection"), out = $("candOut");
+  if (!S.hunt || !S.hunt.hunt) { sec.hidden = true; return; }
+  sec.hidden = false; out.replaceChildren();
+  const all = S.hunt.candidates, fb = $("fBand").value, fv = $("fVerdict").value;
+  const list = all.filter((c) => (!fb || c.band === fb) && (!fv || c.verdict === fv));
+  const likely = all.filter((c) => c.verdict === "likely_sensor").length, insp = all.filter((c) => c.detail).length;
+  $("candSummary").textContent = `${S.hunt.hunt.name} · ${all.length} scored · ${insp} inspected · ${likely} likely sensor`;
+  if (!all.length) { out.append(el("p", { class: "sm dim" }, "This hunt returned no hosts.")); return; }
+  if (!list.length) { out.append(el("p", { class: "sm dim" }, "No candidates match the filters.")); return; }
+  for (const c of list) out.append(candidateCard(c));
+}
+function signalList(signals) {
+  return el("ul", { class: "plain sep" }, signals.map((s) => el("li", { class: "sig" },
+    el("span", { class: "pts " + (s.points >= 0 ? "teal" : "red") }, s.points >= 0 ? `+${s.points}` : s.points),
+    el("span", {}, s.label, s.provisional ? el("span", { class: "tag prov" }, "provisional") : null,
+      s.phase === "inspection" ? el("span", { class: "tag" }, "verified") : null,
+      s.phase === "cluster" ? el("span", { class: "tag" }, "fleet") : null,
+      s.detail ? el("span", { class: "dim" }, " — " + s.detail) : null))));
+}
+function detailView(d) {
+  return el("div", { class: "sep" },
+    el("div", { class: "kv" },
+      el("span", {}, "Org: ", el("b", {}, d.org || "—")), el("span", {}, "ASN: ", el("b", {}, d.asn || "—")),
+      el("span", {}, "ISP: ", el("b", {}, d.isp || "—")), el("span", {}, "OS: ", el("b", {}, d.os || "—")),
+      el("span", {}, "Ports: ", el("b", {}, portList(d.ports))), el("span", {}, "Last update: ", el("b", {}, fmtDate(d.last_update))),
+      el("span", {}, "Location: ", el("b", {}, [d.city, d.region, d.country].filter(Boolean).join(", ") || "—"))),
+    d.hostnames.length ? el("p", { class: "mono xs dim" }, "Hostnames: " + d.hostnames.join(", ")) : null,
+    d.domains.length ? el("p", { class: "mono xs dim" }, "Domains: " + d.domains.join(", ")) : null,
+    d.tags.length ? el("p", { class: "mono xs dim" }, "Tags: " + d.tags.join(", ")) : null,
+    d.software_hints && d.software_hints.length ? el("p", { class: "mono xs accent" }, "Honeypot software fingerprint: " + d.software_hints.join(", ")) : null,
+    el("p", { class: "xs dim", style: "margin-top:10px;font-weight:500" }, "Port history (Shodan observations)"),
+    d.timeline.length ? el("ul", { class: "plain" }, d.timeline.map((t) => el("li", { class: "mono xs" },
+      el("span", { class: "accent" }, ":" + t.port), " ", (t.products || []).join(" → ") || "—",
+      ` · first ${fmtDate(t.first_seen)} · last ${fmtDate(t.last_seen)} · ${t.observations} obs`,
+      t.observations === 1 ? el("span", { class: "teal" }, " · single sighting") : null,
+      (t.products || []).length > 1 || (t.titles || []).length > 1 ? el("span", { class: "red" }, " · changed") : null)))
+      : el("p", { class: "mono xs dim" }, d.history_error || "No history returned."),
+    el("p", { class: "xs dim", style: "margin-top:10px;font-weight:500" }, "Services (latest banner per port)"),
+    el("ul", { class: "plain" }, d.services.map((s) => el("li", { class: "mono xs" },
+      el("span", { class: "accent" }, ":" + s.port), ` ${s.product || "—"} ${s.version || ""}`,
+      s.title ? el("span", {}, ` · “${s.title}”`) : null, s.server ? el("span", { class: "dim" }, ` · ${s.server}`) : null,
+      s.cert_subject ? el("span", {}, ` · cert CN ${s.cert_subject}${s.cert_expired ? " (expired)" : ""}`) : null,
+      s.cpe.length ? el("span", { class: "dim", style: "display:block" }, s.cpe.join(" · ")) : null))),
+    d.vulns.length ? el("p", { class: "mono xs dim" }, `Vuln flags (${d.vulns.length}): ${d.vulns.slice(0, 16).join(", ")}${d.vulns.length > 16 ? ` +${d.vulns.length - 16} more` : ""}`) : null);
+}
+function candidateCard(c) {
+  const d = c.data, open = S.openSignals.has(c.id), showDet = S.openDetail.has(c.id), insp = S.inspecting.has(c.id);
+  const notes = el("input", { value: c.notes || "", placeholder: "Analyst notes (saved with the verdict)", "aria-label": `Notes for ${d.ip}`, style: "margin-top:8px" });
+  const setVerdict = async (v) => { await api("/api/verdict", { candidateId: c.id, verdict: v, notes: notes.value }); await reloadHunt(); loadHunts(); };
+  return el("article", { class: "cand" },
+    el("div", { class: "row center", style: "align-items:flex-start;gap:12px;flex-wrap:nowrap" },
+      el("div", {}, el("div", { class: "score", style: `color:${bandColor(c.band)}` }, c.score), el("div", { class: "xs dim", style: "text-align:center" }, "/ 100")),
+      el("div", { style: "min-width:0;flex:1" },
+        el("div", { class: "row center", style: "gap:2px 8px" }, el("span", { class: "mono", style: "font-weight:600;font-size:15px" }, d.ip),
+          el("span", { class: "xs", style: `color:${bandColor(c.band)}` }, bandLabel(c.band)),
+          c.detail ? el("span", { class: "tag" }, "inspected" + (c.searchScore != null && c.searchScore !== c.score ? ` · was ${c.searchScore}` : "")) : el("span", { class: "tag prov" }, "search-phase score")),
+        el("p", { class: "mono xs dim trunc", style: "margin-top:2px" }, `${d.org || "Unknown org"} · ${d.city || ""} ${d.country || ""} · ${d.asn || ""}`),
+        el("p", { class: "mono xs", style: "margin-top:4px" }, `Ports: ${portList(d.ports)}${d.ports_verified ? "" : " (matched)"} · ${d.product || "—"} ${d.version || ""}`,
+          d.title ? el("span", { class: "dim" }, ` · “${d.title}”`) : null),
+        el("p", { class: "mono xs dim trunc", style: "margin-top:2px" }, `${d.hostnames[0] || "no hostname"} · last seen ${fmtDate(d.last_seen)}`))),
+    el("div", { class: "row", style: "margin-top:12px" },
+      el("button", { class: "small", "aria-expanded": open, onclick: () => { open ? S.openSignals.delete(c.id) : S.openSignals.add(c.id); renderCandidates(); } }, `${open ? "Hide" : "Why this score"} (${c.signals.length})`),
+      el("button", { class: "small ghost", disabled: insp, onclick: async () => {
+        if (c.detail && !insp) { showDet ? S.openDetail.delete(c.id) : S.openDetail.add(c.id); renderCandidates(); return; }
+        S.inspecting.add(c.id); renderCandidates();
+        try { const r = await api("/api/inspect", { ip: d.ip, candidateId: c.id }); if (!r.ok) alertInline(c.id, r.error); else S.openDetail.add(c.id); }
+        catch (err) { alertInline(c.id, err.message); }
+        finally { S.inspecting.delete(c.id); await reloadHunt(); loadHunts(); refreshInfo(); }
+      } }, insp ? "Inspecting…" : c.detail ? (showDet ? "Hide inspection" : "Show inspection") : "Inspect host"),
+      c.detail ? el("button", { class: "small", disabled: insp, onclick: async () => { S.inspecting.add(c.id); renderCandidates(); try { await api("/api/inspect", { ip: d.ip, candidateId: c.id }); } finally { S.inspecting.delete(c.id); await reloadHunt(); } } }, "Re-inspect") : null),
+    el("div", { id: "candErr" + c.id }),
+    open ? signalList(c.signals) : null,
+    showDet && c.detail ? detailView(c.detail) : null,
+    el("div", { class: "sep" },
+      el("div", { class: "row center verdicts", role: "group", "aria-label": `Verdict for ${d.ip}`, style: "gap:4px" },
+        ["unreviewed", "likely_sensor", "ruled_out"].map((v) => el("button", { class: "small" + (c.verdict === v ? " on-" + v : ""), onclick: () => setVerdict(v) },
+          v === "unreviewed" ? "Unreviewed" : v === "likely_sensor" ? "Likely sensor" : "Ruled out"))),
+      notes));
+}
+function alertInline(id, msg) { const n = $("candErr" + id); if (n) n.replaceChildren(el("p", { class: "err" }, msg)); }
+
+// ---------- reference + loose ----------
+async function looseInspect(ip, btn) {
+  const out = $("looseOut"); out.replaceChildren(); busy(btn, true, "Inspecting…");
+  try {
+    const r = await api("/api/inspect", { ip, candidateId: null });
+    if (!r.ok) { out.append(el("p", { class: "err" }, r.error)); return; }
+    const sc = r.score;
+    out.append(el("div", { class: "cand", style: "margin-top:12px" },
+      el("div", { class: "row center", style: "gap:12px;flex-wrap:nowrap;align-items:flex-start" },
+        el("div", {}, el("div", { class: "score", style: `color:${bandColor(sc.band)}` }, sc.score), el("div", { class: "xs dim", style: "text-align:center" }, "/ 100")),
+        el("div", { style: "min-width:0" }, el("span", { class: "mono", style: "font-weight:600;font-size:15px" }, r.detail.ip),
+          el("p", { class: "mono xs dim" }, `Scored against an empty profile (no CVE, no campaign window) — profile-specific signals don't apply here.`))),
+      signalList(sc.signals), detailView(r.detail)));
+  } catch (err) { out.append(el("p", { class: "err" }, err.message)); }
+  finally { busy(btn, false); refreshInfo(); }
+}
+function renderRefs() {
+  if (!S.boot.referenceSensors.length) {
+    $("refOut").replaceChildren(el("p", { class: "sm dim" }, "None configured. Copy references.example.json to ~/.honeypot-hunter/references.json and list your own confirmed sensors."));
+    return;
+  }
+  $("refOut").replaceChildren(...S.boot.referenceSensors.map((s) => el("article", { class: "cand" },
+    el("div", { class: "row center", style: "gap:2px 8px" }, el("span", { class: "mono", style: "font-weight:600;font-size:15px" }, s.ip), el("span", { class: "xs teal" }, s.label)),
+    el("p", { class: "sm dim" }, s.note),
+    el("button", { class: "small ghost", style: "margin-top:8px", onclick: (e) => { $("looseIp").value = s.ip; looseInspect(s.ip, e.currentTarget); } }, "Inspect this host"))));
+}
+$("looseBtn").addEventListener("click", (e) => { const ip = $("looseIp").value.trim(); if (ip) looseInspect(ip, e.currentTarget); });
+
+// ---------- header / boot ----------
+async function refreshInfo() {
+  try {
+    const r = await api("/api/info");
+    $("credits").textContent = r.ok ? `${r.plan} plan · ${fmtN(r.query_credits)} query credits` : "Shodan: " + (r.error || "unavailable");
+    $("credits").style.color = r.ok ? "" : "var(--red)";
+  } catch { $("credits").textContent = "Shodan: unavailable"; }
+}
+(async function boot() {
+  S.boot = await api("/api/bootstrap");
+  $("keyBanner").hidden = S.boot.hasKey;
+  $("limitsNote").textContent = `Counts are free. A search costs 1 query credit, pulls at most the first 100 matches, asks to confirm above ${S.boot.limits.confirmAbove}, and refuses pools over ${S.boot.limits.maxPool} — narrow the profile instead. Host inspections don't use query credits.`;
+  const pb = $("presetBtns");
+  for (const [key, p] of Object.entries(S.boot.presets)) {
+    pb.append(el("button", { class: "small ghost", onclick: () => loadProfile(p.profile, { rawQuery: p.rawQuery, windowStart: p.windowStart, windowEnd: p.windowEnd, name: p.name }) }, "Load " + p.label));
+  }
+  pb.append(el("button", { class: "small", onclick: () => loadProfile({}, {}) }, "Clear"));
+  loadProfile({}, {});  // start empty; presets are templates, not live profiles
+  renderRefs(); loadHunts(); refreshInfo();
+})();
+</script>
+</body>
+</html>
